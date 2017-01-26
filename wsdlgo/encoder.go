@@ -14,6 +14,7 @@ import (
 	"go/token"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -235,12 +236,27 @@ func (ge *goEncoder) importSchema(d *wsdl.Definitions) error {
 		if imp.Location == "" {
 			continue
 		}
-		err := ge.importRemote(imp.Location, &d.Schema)
+		u, err := url.Parse(imp.Location)
+		if err != nil || u.Scheme == "" {
+			err = ge.importLocal(imp.Location, &d.Schema)
+		} else {
+			err = ge.importRemote(imp.Location, &d.Schema)
+		}
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// open local file, decode in v.
+func (ge *goEncoder) importLocal(name string, v interface{}) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return xml.NewDecoder(f).Decode(v)
 }
 
 // download xml from url, decode in v.
